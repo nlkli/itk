@@ -1,0 +1,43 @@
+{
+    "langrev": "1",
+    "warnings": [
+        "no-unused"
+    ],
+    "dependency-search-paths": [
+        "lib"
+    ],
+    "dependencies": [],
+    "authors": [
+        "John Doe <john.doe@example.com>"
+    ],
+    "version": "0.1.0",
+    "sources": [
+        "src/**"
+    ],
+    "test-sources": [
+        "test/**"
+    ],
+    "build-dir": "build",
+    "output": "build",
+    "targets": {
+        "ive": {
+            "type": "executable",
+            "linker-search-paths": [
+                "/opt/homebrew/opt/raylib/lib"
+            ],
+            "linked-libraries": [
+                "raylib"
+            ],
+            "link-args": [
+                "-framework",
+                "IOKit",
+                "-framework",
+                "Cocoa",
+                "-framework",
+                "OpenGL"
+            ]
+        }
+    },
+    "cpu": "generic",
+    "opt": "O0"
+}
