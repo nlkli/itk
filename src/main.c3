@@ -91,7 +91,6 @@ struct Canvas
 fn void Canvas.render(&self, State* s)
 {
     self.cam.offset = { self.r.width * 0.5, self.r.height * 0.5 };
-    // c.cam.Target = cs.Shift
 
     rl::begin_scissor_mode(
         (int)self.r.x,
@@ -108,7 +107,7 @@ fn void Canvas.render(&self, State* s)
         item.render(s);
     };
 
-    if (!s.is_mouse_captured && rl::is_mouse_button_down((int)MouseButton.MOUSE_BUTTON_LEFT))
+    if (!s.is_drag_mode && s.is_mouse_lb_down)
     {
         self.cam.target -= rl::get_mouse_delta() / self.cam.zoom;
     }
@@ -127,43 +126,62 @@ struct State
     List{Item} items;
     Vec2 mouse_pos;
     bool is_mouse_captured;
+    bool is_mouse_lb_down;
+    bool is_drag_mode;
+    int dragging_item;
+}
+
+fn void State.reset(&self)
+{
+    self.mouse_pos = rl::get_mouse_position();
+    self.is_mouse_lb_down = rl::is_mouse_button_down((int)MouseButton.MOUSE_BUTTON_LEFT);
+    self.is_mouse_captured = false;
+    if (rl::is_mouse_button_released((int)MouseButton.MOUSE_BUTTON_LEFT))
+    {
+        self.is_drag_mode = false;
+    }
 }
 
 struct Item
 {
+    int id;
     Texture2D t;
     Vec2 orig_size;
     Vec2 pos;
-    bool is_selected;
-    bool is_drag;
 }
 
 fn void Item.render(&self, State* s)
 {
-
-    self.is_selected = false;
+    rl::draw_texture(self.t, (int)self.pos.x, (int)self.pos.y, rl::WHITE);
     if (!s.is_mouse_captured)
     {
         Rect r = { self.pos.x, self.pos.y, self.t.width, self.t.height };
         Vec2 wmp = rl::get_screen_to_world2d(s.mouse_pos, s.canvas.cam);
         if (r.contains_point(wmp))
         {
-            rl::draw_rectangle_lines_ex(r, 2., rl::MAGENTA);
-            if (rl::is_mouse_button_down((int)MouseButton.MOUSE_BUTTON_LEFT))
-            {
-                self.pos += rl::get_mouse_delta() / s.canvas.cam.zoom;
-            }
             s.is_mouse_captured = true;
-            self.is_selected = true;
+            if (!s.is_drag_mode) {
+                rl::draw_rectangle_lines_ex(r, 2., rl::MAGENTA);
+            }
+            if (s.is_mouse_lb_down && !s.is_drag_mode)
+            {
+                s.is_drag_mode = true;
+                s.dragging_item = self.id;
+            }
         }
     }
-    rl::draw_texture(self.t, (int)self.pos.x, (int)self.pos.y, rl::WHITE);
+    if (s.is_drag_mode && self.id == s.dragging_item)
+    {
+        Rect r = { self.pos.x, self.pos.y, self.t.width, self.t.height };
+        rl::draw_rectangle_lines_ex(r, 2., rl::MAGENTA);
+        self.pos += rl::get_mouse_delta() / s.canvas.cam.zoom;
+    }
 }
 
 fn String? run(Args args)
 {
     rl::set_trace_log_level((int)TraceLogLevel.LOG_FATAL);
-    rl::set_config_flags((uint)ConfigFlags.FLAG_WINDOW_RESIZABLE);
+    rl::set_config_flags((uint)ConfigFlags.FLAG_WINDOW_RESIZABLE | (uint)ConfigFlags.FLAG_MSAA_4X_HINT);
 
     rl::init_window(args.win_width, args.win_height, "itk");
     defer rl::close_window();
@@ -183,14 +201,14 @@ fn String? run(Args args)
     defer s.items.free();
 
     Vec2 spawn_pos;
-    foreach (mf : args.media_files)
+    foreach (int id, mf : args.media_files)
     {
         Image img = load_png_from_media(mf)!;
         Texture2D t = rl::load_texture_from_image(img);
         rl::unload_image(img);
         s.items.push(
             {
-                .t = t, .pos = spawn_pos,
+                .id = id + 1, .t = t, .pos = spawn_pos,
             }
         );
         spawn_pos += 50;
@@ -202,9 +220,8 @@ fn String? run(Args args)
         defer rl::end_drawing();
 
         rl::clear_background({});
+        s.reset();
 
-        s.mouse_pos = rl::get_mouse_position();
-        s.is_mouse_captured = false;
         if (rl::is_window_resized())
         {
             s.canvas.r.size = { rl::get_screen_width(), rl::get_screen_height() };
@@ -215,67 +232,10 @@ fn String? run(Args args)
     return "";
 }
 
-// fn void init_window(int width, int height, ZString title)
-struct Args
-{
-    int win_width, win_height;
-    String[] media_files;
-}
-
-fn Args parse_args(String[] a) => @pool()
-{
-    Args args = { .win_width = 800, .win_height = 600 };
-    List{String} buff;
-    buff.tinit();
-    char last;
-    foreach (s : a[1..])
-    {
-        if (s.starts_with("--")) {}
-
-        else if (s.starts_with("-"))
-        {
-            switch (String ss = s.strip_prefix("-"))
-            {
-                case "w":
-                    last = ss[0];
-                case "h":
-                    last = ss[0];
-                default:
-            }
-        }
-
-        else
-        {
-            if (last)
-            {
-                switch (last)
-                {
-                    case 'w':
-                        args.win_width = s.to_int()!!;
-                    case 'h':
-                        args.win_height = s.to_int()!!;
-                    default:
-                }
-                last = 0;
-            } else
-            {
-                if (!file::is_file(s))
-                {
-                    io::eprintfn("File not found: %s", s);
-                    std::os::exit(1);
-                }
-                buff.push(s);
-            }
-        }
-    }
-    args.media_files = buff.to_array(mem);
-    return args;
-}
-
 fn void main(String[] args)
 {
-    Args a = parse_args(args);
-    defer free(a.media_files);
+    Args a = cli::parse_args(args);
+    defer a.free();
 
     if (String s = run(a)!!)
     {
