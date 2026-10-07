@@ -3,9 +3,9 @@
     "warnings": [
         "no-unused"
     ],
-    "dependency-search-paths": [
-        "lib"
-    ],
+    // "dependency-search-paths": [
+    //     "lib"
+    // ],
     "dependencies": [],
     "authors": [
         "John Doe <john.doe@example.com>"

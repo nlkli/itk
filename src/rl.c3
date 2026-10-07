@@ -1,4 +1,5 @@
 module itk::rl;
+import std::math::geometry;
 
 const Color LIGHTGRAY = { 200, 200, 200, 255 };  // Light Gray
 const Color GRAY = { 130, 130, 130, 255 };  // Gray
@@ -430,18 +431,8 @@ enum NPatchLayout
     NPATCH_THREE_PATCH_HORIZONTAL
 }
 
-struct Vector2
-{
-    float x;
-    float y;
-}
-
-struct Vector3
-{
-    float x;
-    float y;
-    float z;
-}
+alias Vector2 = float[<2>];
+alias Vector3 = float[<3>];
 
 struct Vector4
 {
@@ -479,13 +470,7 @@ struct Color
     char a;
 }
 
-struct Rectangle
-{
-    float x;
-    float y;
-    float width;
-    float height;
-}
+alias Rectangle = Rect;
 
 struct Image
 {
